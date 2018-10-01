@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">FaceMaker</string>
+    <string name="red_color">Red:</string>
+    <string name="green_color">Green:</string>
+    <string name="blue_color">Blue:</string>
+    <string name="hair_style">Hair:</string>
+    <string name="hair_select">Hair</string>
+    <string name="eyes_select">Eyes</string>
+    <string name="skin_select">Skin</string>
+    <string name="random_face">Random Face</string>
+
+    <string-array name="hair_style_dropdown">
+        <item>Spike</item>
+        <item>Flat</item>
+        <item>Curved</item>
+    </string-array>
+</resources>

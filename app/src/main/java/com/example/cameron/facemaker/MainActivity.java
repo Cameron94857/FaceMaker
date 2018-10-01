@@ -1,0 +1,333 @@
+/*
+This class manages interaction with the user interface. It takes care of interfacing with the
+other classes based on the user input.
+@author Cameron
+ */
+
+package com.example.cameron.facemaker;
+
+import android.content.ClipData;
+import android.graphics.Color;
+import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
+import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.SurfaceView;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.RadioGroup;
+import android.widget.SeekBar;
+import android.widget.Spinner;
+
+public class MainActivity extends AppCompatActivity {
+    Face face;
+    Spinner hairStyle;
+    RadioGroup faceElement;
+    SeekBar blueSeekBar;
+    SeekBar redSeekBar;
+    SeekBar greenSeekBar;
+
+    /*
+        Initialize the user interface
+
+        @param savedInstanceState   the bundle to load
+     */
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        //The face object used to draw the faces
+        face = (Face) findViewById(R.id.faceView);
+
+        //general UI elements initialization
+        faceElement = (RadioGroup) findViewById(R.id.faceSelectionRadioGroup);
+        faceElement.setOnCheckedChangeListener(new ElementRadioGroupChangedListener());
+
+        Button randomFace = (Button) findViewById(R.id.randomFaceBtn);
+        randomFace.setOnClickListener(new RandomFaceListener());
+
+        redSeekBar = (SeekBar) findViewById(R.id.redSeekBar);
+        redSeekBar.setOnSeekBarChangeListener(new SeekBarListener());
+
+        blueSeekBar = (SeekBar) findViewById(R.id.blueSeekBar);
+        blueSeekBar.setOnSeekBarChangeListener(new SeekBarListener());
+
+        greenSeekBar = (SeekBar) findViewById(R.id.greenSeekBar);
+        greenSeekBar.setOnSeekBarChangeListener(new SeekBarListener());
+
+        //setup the hair style spinner
+        hairStyle = (Spinner) findViewById(R.id.hairSpinner);
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
+                R.array.hair_style_dropdown, android.R.layout.simple_spinner_item);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        hairStyle.setAdapter(adapter);
+        hairStyle.setOnItemSelectedListener(new HairSpinnerListener());
+        int pos = adapter.getPosition("Spike");
+        hairStyle.setSelection(pos);
+
+        //initialize the seekbar values
+        updateSeekBar();
+    }
+
+    /*
+        updates all SeekBar's progress to represent the face values
+     */
+    public void updateSeekBar(){
+        int color = 0;
+        //check what face element is being modified
+        if (faceElement.getCheckedRadioButtonId() == R.id.hairRadioButton){
+            color = face.getHairColor();
+        }
+        else if (faceElement.getCheckedRadioButtonId() == R.id.skinRadioButton){
+            color = face.getSkinColor();
+        }
+        else if (faceElement.getCheckedRadioButtonId() == R.id.eyesRadioButton){
+            color = face.getEyeColor();
+        }
+
+        //extract colors
+        int R = (color >> 16) & 0xff;
+        int G = (color >>  8) & 0xff;
+        int B = (color      ) & 0xff;
+
+        //update seekbar values
+        redSeekBar.setProgress(R);
+        greenSeekBar.setProgress(G);
+        blueSeekBar.setProgress(B);
+    }
+
+    /*
+        Listens for when the face element selection is changed
+     */
+    public class ElementRadioGroupChangedListener implements RadioGroup.OnCheckedChangeListener{
+
+        @Override
+        public void onCheckedChanged(RadioGroup group, int checkedId) {
+            updateSeekBar();
+        }
+    }
+
+    /*
+        Listens for when the hair type is changed
+     */
+    public class HairSpinnerListener implements  Spinner.OnItemSelectedListener{
+        public void onItemSelected(AdapterView<?> parent, View view, int position, long id){
+            String item = (String) parent.getItemAtPosition(position);
+            //update face hair style from the spinner selection
+            switch(item){
+                case "Spike":
+                    face.setHairStyle(1);
+                    break;
+                case "Flat":
+                    face.setHairStyle(2);
+                    break;
+                case "Curved":
+                    face.setHairStyle(3);
+                    break;
+            }
+            face.invalidate();
+        }
+
+        public void onNothingSelected(AdapterView<?> parent){
+
+        }
+    }
+
+    /*
+        Listens for when the random face button is clicked
+     */
+    public class RandomFaceListener implements View.OnClickListener{
+        public void onClick(View v){
+            face.randomize(); //generate a new random face
+
+            int style = face.getHairStyle();
+
+            //update GUI spinner based off random face generated by face
+            if (style == 1) {
+
+                hairStyle.setSelection(0);
+            }
+            else if (style == 2){
+                hairStyle.setSelection(1);
+            }
+            else if (style == 3){
+                hairStyle.setSelection(2);
+            }
+
+            //update seekbar based on random face generated by face
+            updateSeekBar();
+        }
+    }
+
+    /*
+        Listens for when the seekbar value is changed
+     */
+    public class SeekBarListener implements SeekBar.OnSeekBarChangeListener{
+        public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser){
+            if (seekBar.getId() == R.id.blueSeekBar){  //check which seekbar was changed
+                //determine which element to change the color for:
+                if (faceElement.getCheckedRadioButtonId() == R.id.hairRadioButton){
+                    //String item = (String) hairStyle.getSelectedItem();
+                    int color = face.getHairColor();
+                    int A = (color >> 24) & 0xff;
+                    int R = (color >> 16) & 0xff;
+                    int G = (color >>  8) & 0xff;
+                    int B = (color      ) & 0xff;
+
+                    B = progress;
+                    int newColor = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 8 | (B & 0xff);
+                    face.setHairColor(newColor);
+                }
+                else if (faceElement.getCheckedRadioButtonId() == R.id.eyesRadioButton){
+                    //change blue component eye color
+                    int color = face.getEyeColor();
+                    int A = (color >> 24) & 0xff;
+                    int R = (color >> 16) & 0xff;
+                    int G = (color >>  8) & 0xff;
+                    int B = (color      ) & 0xff;
+
+                    B = progress;
+                    int newColor = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 8 | (B & 0xff);
+                    face.setEyeColor(newColor);
+                }
+                if (faceElement.getCheckedRadioButtonId() == R.id.skinRadioButton){
+                    int color = face.getSkinColor();
+                    int A = (color >> 24) & 0xff;
+                    int R = (color >> 16) & 0xff;
+                    int G = (color >>  8) & 0xff;
+                    int B = (color      ) & 0xff;
+
+                    B = progress;
+                    int newColor = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 8 | (B & 0xff);
+                    face.setSkinColor(newColor);
+                }
+                face.invalidate();
+
+            }
+            else if (seekBar.getId() == R.id.greenSeekBar){
+
+                if (faceElement.getCheckedRadioButtonId() == R.id.hairRadioButton){
+                    //String item = (String) hairStyle.getSelectedItem();
+                    int color = face.getHairColor();
+                    int A = (color >> 24) & 0xff;
+                    int R = (color >> 16) & 0xff;
+                    int G = (color >>  8) & 0xff;
+                    int B = (color      ) & 0xff;
+
+                    G = progress;
+                    int newColor = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 8 | (B & 0xff);
+                    face.setHairColor(newColor);
+                }
+                else if (faceElement.getCheckedRadioButtonId() == R.id.eyesRadioButton){
+                    //change blue component eye color
+                    int color = face.getEyeColor();
+                    int A = (color >> 24) & 0xff;
+                    int R = (color >> 16) & 0xff;
+                    int G = (color >>  8) & 0xff;
+                    int B = (color      ) & 0xff;
+
+                    G = progress;
+                    int newColor = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 8 | (B & 0xff);
+                    face.setEyeColor(newColor);
+                }
+                if (faceElement.getCheckedRadioButtonId() == R.id.skinRadioButton){
+                    int color = face.getSkinColor();
+                    int A = (color >> 24) & 0xff;
+                    int R = (color >> 16) & 0xff;
+                    int G = (color >>  8) & 0xff;
+                    int B = (color      ) & 0xff;
+
+                    G = progress;
+                    int newColor = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 8 | (B & 0xff);
+                    face.setSkinColor(newColor);
+                }
+                face.invalidate();
+
+            }
+            else if (seekBar.getId() == R.id.redSeekBar){
+
+                if (faceElement.getCheckedRadioButtonId() == R.id.hairRadioButton){
+                    //String item = (String) hairStyle.getSelectedItem();
+                    int color = face.getHairColor();
+                    int A = (color >> 24) & 0xff;
+                    int R = (color >> 16) & 0xff;
+                    int G = (color >>  8) & 0xff;
+                    int B = (color      ) & 0xff;
+
+                    R = progress;
+                    int newColor = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 8 | (B & 0xff);
+                    face.setHairColor(newColor);
+                }
+                else if (faceElement.getCheckedRadioButtonId() == R.id.eyesRadioButton){
+                    //change blue component eye color
+                    int color = face.getEyeColor();
+                    int A = (color >> 24) & 0xff;
+                    int R = (color >> 16) & 0xff;
+                    int G = (color >>  8) & 0xff;
+                    int B = (color      ) & 0xff;
+
+                    R = progress;
+                    int newColor = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 8 | (B & 0xff);
+                    face.setEyeColor(newColor);
+                }
+                if (faceElement.getCheckedRadioButtonId() == R.id.skinRadioButton){
+                    int color = face.getSkinColor();
+                    int A = (color >> 24) & 0xff;
+                    int R = (color >> 16) & 0xff;
+                    int G = (color >>  8) & 0xff;
+                    int B = (color      ) & 0xff;
+
+                    R = progress;
+                    int newColor = (A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 8 | (B & 0xff);
+                    face.setSkinColor(newColor);
+                }
+                face.invalidate();
+
+            }
+        }
+
+        public void onStartTrackingTouch(SeekBar seekBar){
+
+        }
+
+        public void onStopTrackingTouch(SeekBar seekBar){
+
+        }
+    }
+
+}
+
+/** External Citation   Date:     30 September 2018
+ * Problem: set spinner selected item
+ * Resource: https://developer.android.com/reference/android/widget/AbsSpinner.html#setSelection(int)
+ * Solution: Spinner.setSelection(int item)
+ * */
+
+
+
+/** External Citation   Date:     30 September 2018
+ * Problem: understanding the color library; lots of features uncompatible with the min support version
+ * Resource: https://developer.android.com/reference/android/graphics/Color#valueOf(float,%20float,%20float)
+ * Solution:
+ * */
+
+/** External Citation   Date:     30 September 2018
+ * Problem: guide on how to use spinners
+ * Resource: https://developer.android.com/guide/topics/ui/controls/spinner
+ * Solution: see code used above
+ * */
+
+/** External Citation   Date:     30 September 2018
+ * Problem: figuring out when the seekbar is changed
+ * Resource: https://developer.android.com/reference/android/widget/SeekBar.OnSeekBarChangeListener
+ * Solution: implementing a SeekBar.onSeekBarChangedListener
+ * */
+
+/** External Citation   Date:     30 September 2018
+ * Problem: Attempt to change minimum supported version
+ * Resource: https://stackoverflow.com/questions/19465049/changing-api-level-android-studio
+ * Solution: none at the moment - gradle build failed
+ * */
